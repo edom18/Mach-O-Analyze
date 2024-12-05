@@ -2,6 +2,26 @@
 #include <stdlib.h>
 #include <mach-o/loader.h>
 
+void print_segment_command(struct segment_command_64* command)
+{
+    if (command == NULL)
+    {
+        return;
+    }
+
+    printf("     cmd: LC_SEGMENT_64\n");
+    printf(" cmdsize: %d\n", command->cmdsize);
+    printf(" segname: %s\n", command->segname);
+    printf("  vmaddr: 0x%016llx\n", command->vmaddr);
+    printf("  vmsize: 0x%016llx\n", command->vmsize);
+    printf(" fileoff: %llu\n", command->fileoff);
+    printf("filesize: %llu\n", command->filesize);
+    printf(" maxprot: %d\n", command->maxprot);
+    printf("initprot: %d\n", command->initprot);
+    printf("  nsects: %d\n", command->nsects);
+    printf("   flags: 0x%d\n", command->flags);
+}
+
 void display_mach_o_load_commands(const char* file_path)
 {
     FILE* fp = fopen(file_path, "rb");
@@ -54,17 +74,7 @@ void display_mach_o_load_commands(const char* file_path)
         cur_seg_cmd = (struct segment_command_64*)cur;
         if (cur_seg_cmd->cmd == LC_SEGMENT_64)
         {
-            printf("     cmd: LC_SEGMENT_64\n");
-            printf(" cmdsize: %d\n", cur_seg_cmd->cmdsize);
-            printf(" segname: [%s]\n", cur_seg_cmd->segname);
-            printf("  vmaddr: 0x%016llx\n", cur_seg_cmd->vmaddr);
-            printf("  vmsize: 0x%016llx\n", cur_seg_cmd->vmsize);
-            printf(" fileoff: %llu\n", cur_seg_cmd->fileoff);
-            printf("filesize: %llu\n", cur_seg_cmd->filesize);
-            printf(" maxprot: %d\n", cur_seg_cmd->maxprot);
-            printf("initprot: %d\n", cur_seg_cmd->initprot);
-            printf("  nsects: %d\n", cur_seg_cmd->nsects);
-            printf("   flags: 0x%d\n", cur_seg_cmd->flags);
+            print_segment_command(cur_seg_cmd);
         }
 
         printf("-----------------------------------------\n");
