@@ -2,25 +2,18 @@
 #include <stdlib.h>
 #include <mach-o/loader.h>
 
-void print_segment_command(struct segment_command_64* command)
-{
-    if (command == NULL)
-    {
-        return;
-    }
+#ifdef __LP64__
+typedef struct segment_command_64 segment_command_t;
+typedef struct mach_header_64 mach_header_t;
+typedef struct section_64 section_t;
+#else
+typedef struct mach_header mach_header_t;
+typedef struct segment_command segment_command_t;
+typedef struct section section_t;
+#endif
 
-    printf("     cmd: LC_SEGMENT_64\n");
-    printf(" cmdsize: %d\n", command->cmdsize);
-    printf(" segname: %s\n", command->segname);
-    printf("  vmaddr: 0x%016llx\n", command->vmaddr);
-    printf("  vmsize: 0x%016llx\n", command->vmsize);
-    printf(" fileoff: %llu\n", command->fileoff);
-    printf("filesize: %llu\n", command->filesize);
-    printf(" maxprot: %d\n", command->maxprot);
-    printf("initprot: %d\n", command->initprot);
-    printf("  nsects: %d\n", command->nsects);
-    printf("   flags: 0x%d\n", command->flags);
-}
+void print_segment_command(segment_command_t* command);
+void print_section(section_t section);
 
 void display_mach_o_load_commands(const char* file_path)
 {
@@ -49,7 +42,7 @@ void display_mach_o_load_commands(const char* file_path)
     printf("Printing a mach-o header.\n");
     printf("-------------------------------------\n");
 
-    const struct mach_header_64* header = (const struct mach_header_64*)buffer;
+    const mach_header_t* header = (const mach_header_t*)buffer;
 
     printf("Magic: %d\n", header->magic);
     printf("CPU Type: %d\n", header->cputype);
@@ -67,7 +60,7 @@ void display_mach_o_load_commands(const char* file_path)
     struct segment_command_64* cur_seg_cmd;
 
     // ヘッダの次の位置のポインタ = Load command の先頭位置
-    uintptr_t cur = (uintptr_t)header + sizeof(struct mach_header_64);
+    uintptr_t cur = (uintptr_t)header + sizeof(mach_header_t);
 
     for (unsigned int i = 0; i < header->ncmds; i++, cur += cur_seg_cmd->cmdsize)
     {
@@ -82,6 +75,31 @@ void display_mach_o_load_commands(const char* file_path)
 
     free(buffer);
     fclose(fp);
+}
+
+void print_segment_command(segment_command_t* command)
+{
+    if (command == NULL)
+    {
+        return;
+    }
+
+    printf("     cmd: LC_SEGMENT_64\n");
+    printf(" cmdsize: %d\n", command->cmdsize);
+    printf(" segname: %s\n", command->segname);
+    printf("  vmaddr: 0x%016llx\n", command->vmaddr);
+    printf("  vmsize: 0x%016llx\n", command->vmsize);
+    printf(" fileoff: %llu\n", command->fileoff);
+    printf("filesize: %llu\n", command->filesize);
+    printf(" maxprot: %d\n", command->maxprot);
+    printf("initprot: %d\n", command->initprot);
+    printf("  nsects: %d\n", command->nsects);
+    printf("   flags: 0x%d\n", command->flags);
+}
+
+void print_section(section_t section)
+{
+
 }
 
 int main(int argc, char* argv[])
