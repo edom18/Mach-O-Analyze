@@ -57,14 +57,14 @@ void display_mach_o_load_commands(const char* file_path)
     printf("Printing mach-o segments.\n");
     printf("-------------------------------------\n");
 
-    struct segment_command_64* cur_seg_cmd;
+    segment_command_t* cur_seg_cmd;
 
     // ヘッダの次の位置のポインタ = Load command の先頭位置
     uintptr_t cur = (uintptr_t)header + sizeof(mach_header_t);
 
     for (unsigned int i = 0; i < header->ncmds; i++, cur += cur_seg_cmd->cmdsize)
     {
-        cur_seg_cmd = (struct segment_command_64*)cur;
+        cur_seg_cmd = (segment_command_t*)cur;
         if (cur_seg_cmd->cmd == LC_SEGMENT_64)
         {
             print_segment_command(cur_seg_cmd);
