@@ -83,7 +83,18 @@ void display_mach_o_load_commands(const char* file_path)
             section_t* section = (section_t*)(cur_seg_cmd + 1);
             for (uint32_t j = 0; j < cur_seg_cmd->nsects; j++)
             {
-                printf("sectname: %s\n", section[j].sectname);
+                printf(" sectname: %s\n", section[j].sectname);
+                printf("  segname: %s\n", section[j].segname);
+                printf("     addr: 0x%016llx\n", section[j].addr);
+                printf("     size: 0x%016llx\n", section[j].size);
+                printf("   offset: %d\n", section[j].offset);
+                printf("    align: %d\n", section[j].align);
+                printf("   reloff: %d\n", section[j].reloff);
+                printf("   nreloc: %d\n", section[j].nreloc);
+                printf("    flags: 0x%08x\n", section[j].flags);
+                printf("reserved1: %d\n", section[j].reserved1);
+                printf("reserved2: %d\n", section[j].reserved2);
+                printf("reserved3: %d\n", section[j].reserved3);
             }
         }
 
@@ -108,8 +119,8 @@ void print_segment_command(segment_command_t* command)
     printf("  vmsize: 0x%016llx\n", command->vmsize);
     printf(" fileoff: %llu\n", command->fileoff);
     printf("filesize: %llu\n", command->filesize);
-    printf(" maxprot: 0x%08d\n", command->maxprot);
-    printf("initprot: 0x%08d\n", command->initprot);
+    printf(" maxprot: 0x%08x\n", command->maxprot);
+    printf("initprot: 0x%08x\n", command->initprot);
     printf("  nsects: %d\n", command->nsects);
     printf("   flags: 0x%d\n", command->flags);
 }
