@@ -68,6 +68,20 @@ void display_mach_o_load_commands(const char* file_path)
         if (cur_seg_cmd->cmd == LC_SEGMENT_64)
         {
             print_segment_command(cur_seg_cmd);
+
+            if (cur_seg_cmd->nsects == 0)
+            {
+                printf("-----------------------------------------\n");
+                continue;
+            }
+
+            printf("- - - - - - - - - - - - - - - - -\n");
+
+            section_t* section = (section_t*)(cur_seg_cmd + 1);
+            for (uint32_t j = 0; j < cur_seg_cmd->nsects; j++)
+            {
+                printf("sectname: %s\n", section[j].sectname);
+            }
         }
 
         printf("-----------------------------------------\n");
@@ -91,8 +105,8 @@ void print_segment_command(segment_command_t* command)
     printf("  vmsize: 0x%016llx\n", command->vmsize);
     printf(" fileoff: %llu\n", command->fileoff);
     printf("filesize: %llu\n", command->filesize);
-    printf(" maxprot: %d\n", command->maxprot);
-    printf("initprot: %d\n", command->initprot);
+    printf(" maxprot: 0x%08d\n", command->maxprot);
+    printf("initprot: 0x%08d\n", command->initprot);
     printf("  nsects: %d\n", command->nsects);
     printf("   flags: 0x%d\n", command->flags);
 }
