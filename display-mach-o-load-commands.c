@@ -77,6 +77,9 @@ void display_mach_o_load_commands(const char* file_path)
 
             printf("- - - - - - - - - - - - - - - - -\n");
 
+            // section 情報は segment 内にあり、segment 情報の直後に配置されている
+            // そのため section_t 構造体は segment_command_t ひとつ分の
+            // アドレスを進めた先（= cur_seg_cmd + 1）の位置から開始する
             section_t* section = (section_t*)(cur_seg_cmd + 1);
             for (uint32_t j = 0; j < cur_seg_cmd->nsects; j++)
             {
