@@ -16,6 +16,10 @@ typedef struct section section_t;
 typedef struct nlist nlist_t;
 #endif
 
+#ifndef SEG_DATA_CONST
+#define SEG_DATA_CONST  "__DATA_CONST"
+#endif
+
 void print_header(const mach_header_t* header);
 void print_segment_command(segment_command_t* command);
 void print_section(segment_command_t* seg_cmd);
@@ -93,29 +97,64 @@ void display_mach_o_load_commands(const char* file_path)
     printf("Printing mach-o segments.\n");
     printf("-------------------------------------\n");
 
-
     cur = (uintptr_t)header + sizeof(mach_header_t);
+    uintptr_t base_addr = (uintptr_t)buffer;
+    nlist_t* symtab = (nlist_t*)(base_addr + symtab_cmd->symoff);
+    char* strtab = (char*)(base_addr + symtab_cmd->stroff);
     for (unsigned int i = 0; i < header->ncmds; i++, cur += cur_seg_cmd->cmdsize)
     {
         cur_seg_cmd = (segment_command_t*)cur;
-        if (cur_seg_cmd->cmd == LC_SEGMENT_64)
+        if (cur_seg_cmd->cmd != LC_SEGMENT_64)
         {
-            print_segment_command(cur_seg_cmd);
+            continue;
+        }
 
-            if (cur_seg_cmd->nsects == 0)
+        print_segment_command(cur_seg_cmd);
+
+        if (cur_seg_cmd->nsects == 0)
+        {
+            continue;
+        }
+
+        printf("[Sections]\n");
+
+        print_section(cur_seg_cmd);
+
+        if (strcmp(cur_seg_cmd->segname, SEG_DATA) != 0 &&
+            strcmp(cur_seg_cmd->segname, SEG_DATA_CONST) != 0)
+        {
+            continue;
+        }
+
+        printf("[Symbols]\n");
+        for (uint32_t j = 0; j < cur_seg_cmd->nsects; j++)
+        {
+            section_t* section = (section_t*)(cur + sizeof(segment_command_t)) + j;
+            if ((section->flags & SECTION_TYPE) == S_LAZY_SYMBOL_POINTERS ||
+                (section->flags & SECTION_TYPE) == S_NON_LAZY_SYMBOL_POINTERS)
             {
-                continue;
+
+                uint32_t* indirect_symtab = (uint32_t*)(base_addr + dysymtab_cmd->indirectsymoff);
+                uint32_t* indirect_symbol_indices = indirect_symtab + section->reserved1;
+                void** indirect_symbol_bindings = (void**)((uintptr_t)base_addr + section->addr);
+
+                for (uint32_t k = 0; k < section->size / sizeof(void*); k++)
+                {
+                    uint32_t symtab_index = indirect_symbol_indices[k];
+                    if (symtab_index == INDIRECT_SYMBOL_ABS || symtab_index == INDIRECT_SYMBOL_LOCAL ||
+                        symtab_index == (INDIRECT_SYMBOL_LOCAL | INDIRECT_SYMBOL_ABS))
+                    {
+                        continue;
+                    }
+
+                    uint32_t strtab_offset = symtab[symtab_index].n_un.n_strx;
+                    char* symbol_name = strtab + strtab_offset;
+
+                    printf("  - %s\n", symbol_name);
+                }
             }
-
-            printf("- - - - - - - - - - - - - - - - -\n");
-
-            print_section(cur_seg_cmd);
         }
     }
-
-    // for (uint32_t i = 0; i < )
-    // uint32_t* indirect_symtab = (uint32_t*)(base_addr + dysymtab_cmd->indirectsymoff);
-    // void** indirect_symbol_bindings = (void**)((uintptr_t)base_addr + )
 
     free(buffer);
     fclose(fp);
