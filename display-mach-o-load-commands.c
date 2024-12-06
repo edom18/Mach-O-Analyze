@@ -113,10 +113,11 @@ void display_mach_o_load_commands(const char* file_path)
 
         if (cur_seg_cmd->nsects == 0)
         {
+            printf("==================================\n");
             continue;
         }
 
-        printf("[Sections]\n");
+        printf("------------------- Sections\n");
 
         print_section(cur_seg_cmd);
 
@@ -126,7 +127,7 @@ void display_mach_o_load_commands(const char* file_path)
             continue;
         }
 
-        printf("[Symbols]\n");
+        printf("--------- Dynamic symbols\n");
         for (uint32_t j = 0; j < cur_seg_cmd->nsects; j++)
         {
             section_t* section = (section_t*)(cur + sizeof(segment_command_t)) + j;
@@ -154,6 +155,8 @@ void display_mach_o_load_commands(const char* file_path)
                 }
             }
         }
+
+        printf("----------------------------------\n");
     }
 
     free(buffer);
@@ -215,6 +218,7 @@ void print_section(segment_command_t* seg_cmd)
         printf("reserved1: %d\n", section[j].reserved1);
         printf("reserved2: %d\n", section[j].reserved2);
         printf("reserved3: %d\n", section[j].reserved3);
+        printf("- - - - - - - - - - - - - - - - - - - - - - \n");
     }
 }
 
