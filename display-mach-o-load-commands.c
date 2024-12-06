@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <mach-o/loader.h>
 
 #ifdef __LP64__
@@ -16,6 +17,7 @@ void print_segment_command(segment_command_t* command);
 void print_section(segment_command_t* seg_cmd);
 void print_dysymtable(struct dysymtab_command* dysymtab_cmd);
 void print_symtable(struct symtab_command* symtab_cmd);
+void parse_symbol_table(segment_command_t* linkeedit_seg);
 
 /// @brief Mach-O フィーマットの Load Command の内容を出力する
 /// @param file_path 出力したいバイナリファイル（Mach-O フィーマット）
@@ -54,8 +56,6 @@ void display_mach_o_load_commands(const char* file_path)
     printf("-------------------------------------\n");
     printf("Printing a mach-o header.\n");
     printf("-------------------------------------\n");
-
-
     printf("Magic: %d\n", header->magic);
     printf("CPU Type: %d\n", header->cputype);
     printf("CPU Sub Type: %d\n", header->cpusubtype);
@@ -80,6 +80,12 @@ void display_mach_o_load_commands(const char* file_path)
         if (cur_seg_cmd->cmd == LC_SEGMENT_64)
         {
             print_segment_command(cur_seg_cmd);
+
+            // 対象セグメントが __LINKEDIT だった場合は別途処理
+            if (strcmp(cur_seg_cmd->segname, SEG_LINKEDIT) == 0)
+            {
+                parse_symbol_table(cur_seg_cmd);
+            }
 
             if (cur_seg_cmd->nsects == 0)
             {
@@ -184,6 +190,12 @@ void print_symtable(struct symtab_command* symtab_cmd)
     printf("  nsyms: %d\n", symtab_cmd->nsyms);
     printf(" stroff: %d\n", symtab_cmd->stroff);
     printf("strsize: %d\n", symtab_cmd->strsize);
+}
+
+void parse_symbol_table(segment_command_t* linkeedit_seg)
+{
+    printf("=====================\n");
+    printf("Found the %s segment.\n", SEG_LINKEDIT);
 }
 
 int main(int argc, char* argv[])
