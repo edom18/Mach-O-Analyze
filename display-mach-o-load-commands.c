@@ -221,9 +221,12 @@ void parse_symbol_table(uintptr_t base_addr, segment_command_t* linkeedit_seg, s
     printf("===========================================\n");
     printf("Found the %s segment.\n", SEG_LINKEDIT);
 
+    // stroff はファイル先頭からのオフセット
     uint32_t stroff = symtab_cmd->stroff;
     uint32_t strsize = symtab_cmd->strsize;
 
+    // string table 内は \0 区切りの文字列配列
+    // インデックス 0 は空文字列。1 つめの実シンボル名は strtab + nlist.n_un.n_strx で参照される
     char* strtab = (char*)base_addr + stroff;
     size_t offset = 0;
     while (offset < strsize)
@@ -234,12 +237,7 @@ void parse_symbol_table(uintptr_t base_addr, segment_command_t* linkeedit_seg, s
         offset += strlen(symbol_name) + 1;
     }
 
-    // uintptr_t linkedit_base = (uintptr_t)(slide + linkeedit_seg->fileoff);
-    // printf("LinkEdit Base: %lu\n", linkedit_base);
-    // printf("File offset: %llu\n", linkeedit_seg->fileoff);
-
-    // // symtab_cmd->symoff は、LinkEdit セグメントからの相対アドレスのはず？
-    // nlist_t* symtab = (nlist_t*)(linkedit_base + symtab_cmd->symoff);
+    // nlist_t* symtab = (nlist_t*)(base_addr + symtab_cmd->symoff);
 
     // printf("Symtab: %lu\n", (uintptr_t)symtab);
 
@@ -254,10 +252,6 @@ void parse_symbol_table(uintptr_t base_addr, segment_command_t* linkeedit_seg, s
     // // };
     // uint32_t strtab_offset = symtab[0].n_un.n_strx;
     // printf("strx: %d\n", strtab_offset);
-
-    // char* strtab = (char*)(linkedit_base + symtab_cmd->stroff);
-
-    // printf("String table: %s\n", strtab);
 
     // uint32_t* indirect_symtab = (uint32_t*)(linkedit_base + dysymtab_cmd->indirectsymoff);
 }
