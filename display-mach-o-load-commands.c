@@ -89,6 +89,42 @@ void display_mach_o_load_commands(const char* file_path)
 
             print_section(cur_seg_cmd);
         }
+        else if (cur_seg_cmd->cmd == LC_SYMTAB)
+        {
+            printf("Found the Symbol table segment.\n");
+            struct symtab_command* symtab_cmd = (struct symtab_command*)cur_seg_cmd;
+
+            printf("    cmd: %d\n", symtab_cmd->cmd);
+            printf("cmdsize: %d\n", symtab_cmd->cmdsize);
+            printf(" symoff: %d\n", symtab_cmd->symoff);
+            printf("  nsyms: %d\n", symtab_cmd->nsyms);
+            printf(" stroff: %d\n", symtab_cmd->stroff);
+            printf("strsize: %d\n", symtab_cmd->strsize);
+        }
+        else if (cur_seg_cmd->cmd == LC_DYSYMTAB)
+        {
+            printf("Found the Dyanmic symbol table segment.\n");
+            struct dysymtab_command* dysymtab_cmd = (struct dysymtab_command*)cur_seg_cmd;
+
+            printf("           cmd: %d\n", dysymtab_cmd->cmd);
+            printf("       cmdsize: %d\n", dysymtab_cmd->cmdsize);
+            printf("     ilocalsym: %d\n", dysymtab_cmd->ilocalsym);
+            printf("     nlocalsym: %d\n", dysymtab_cmd->nlocalsym);
+            printf("    iextdefsym: %d\n", dysymtab_cmd->iextdefsym);
+            printf("    nextdefsym: %d\n", dysymtab_cmd->nextdefsym);
+            printf("        tocoff: %d\n", dysymtab_cmd->tocoff);
+            printf("          ntoc: %d\n", dysymtab_cmd->ntoc);
+            printf("     modtaboff: %d\n", dysymtab_cmd->modtaboff);
+            printf("       nmodtab: %d\n", dysymtab_cmd->nmodtab);
+            printf("  extrefsymoff: %d\n", dysymtab_cmd->extrefsymoff);
+            printf("   nextrefsyms: %d\n", dysymtab_cmd->nextrefsyms);
+            printf("indirectsymoff: %d\n", dysymtab_cmd->indirectsymoff);
+            printf(" nindirectsyms: %d\n", dysymtab_cmd->nindirectsyms);
+            printf("     extreloff: %d\n", dysymtab_cmd->extreloff);
+            printf("       nextrel: %d\n", dysymtab_cmd->nextrel);
+            printf("     locreloff: %d\n", dysymtab_cmd->locreloff);
+            printf("       nlocrel: %d\n", dysymtab_cmd->nlocrel);
+        }
 
         printf("-----------------------------------------\n");
     }
