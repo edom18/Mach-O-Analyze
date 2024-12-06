@@ -15,6 +15,8 @@ typedef struct section section_t;
 void print_segment_command(segment_command_t* command);
 void print_section(section_t section);
 
+/// @brief Mach-O フィーマットの Load Command の内容を出力する
+/// @param file_path 出力したいバイナリファイル（Mach-O フィーマット）
 void display_mach_o_load_commands(const char* file_path)
 {
     FILE* fp = fopen(file_path, "rb");
@@ -38,11 +40,19 @@ void display_mach_o_load_commands(const char* file_path)
 
     fread(buffer, 1, file_size, fp);
 
+    const mach_header_t* header = (const mach_header_t*)buffer;
+    if (header->magic != MH_MAGIC_64)
+    {
+        fprintf(stderr, "The file [%s] is not a Mach-O file.\n", file_path);
+        free(buffer);
+        fclose(fp);
+        return;
+    }
+
     printf("-------------------------------------\n");
     printf("Printing a mach-o header.\n");
     printf("-------------------------------------\n");
 
-    const mach_header_t* header = (const mach_header_t*)buffer;
 
     printf("Magic: %d\n", header->magic);
     printf("CPU Type: %d\n", header->cputype);
