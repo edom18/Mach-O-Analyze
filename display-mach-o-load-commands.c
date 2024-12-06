@@ -16,11 +16,12 @@ typedef struct section section_t;
 typedef struct nlist nlist_t;
 #endif
 
+void print_header(const mach_header_t* header);
 void print_segment_command(segment_command_t* command);
 void print_section(segment_command_t* seg_cmd);
 void print_dysymtable(struct dysymtab_command* dysymtab_cmd);
 void print_symtable(struct symtab_command* symtab_cmd);
-void parse_symbol_table(uintptr_t base_addr, segment_command_t* linkeedit_seg, struct symtab_command* symtab_cmd, struct dysymtab_command* dysymtab_cmd);
+void parse_symbol_table(uintptr_t base_addr, struct symtab_command* symtab_cmd, struct dysymtab_command* dysymtab_cmd);
 
 /// @brief Mach-O フィーマットの Load Command の内容を出力する
 /// @param file_path 出力したいバイナリファイル（Mach-O フィーマット）
@@ -56,30 +57,44 @@ void display_mach_o_load_commands(const char* file_path)
         return;
     }
 
-    printf("-------------------------------------\n");
-    printf("Printing a mach-o header.\n");
-    printf("-------------------------------------\n");
-    printf("Magic: %d\n", header->magic);
-    printf("CPU Type: %d\n", header->cputype);
-    printf("CPU Sub Type: %d\n", header->cpusubtype);
-    printf("File Type: %d\n", header->filetype);
-    printf("Command Count: %d\n", header->ncmds);
-    printf("Size of Commands: %d\n", header->sizeofcmds);
-    printf("Flags: %d\n", header->flags);
+    // ----------------------------------
 
-
-    printf("-------------------------------------\n");
-    printf("Printing mach-o segments.\n");
-    printf("-------------------------------------\n");
+    print_header(header);
 
     segment_command_t* cur_seg_cmd;
-    segment_command_t* linkedit_seg;
     struct symtab_command* symtab_cmd;
     struct dysymtab_command* dysymtab_cmd;
 
     // ヘッダの次の位置のポインタ = Load command の先頭位置
     uintptr_t cur = (uintptr_t)header + sizeof(mach_header_t);
 
+    // 必要なセグメントを検索する
+    for (unsigned int i = 0; i < header->ncmds; i++, cur += cur_seg_cmd->cmdsize)
+    {
+        cur_seg_cmd = (segment_command_t*)cur;
+        if (cur_seg_cmd->cmd == LC_SYMTAB)
+        {
+            symtab_cmd = (struct symtab_command*)cur_seg_cmd;
+        }
+        else if (cur_seg_cmd->cmd == LC_DYSYMTAB)
+        {
+            dysymtab_cmd = (struct dysymtab_command*)cur_seg_cmd;
+        }
+    }
+
+    // Symbol table と Dynamic symbol table が合った場合だけ出力
+    if (symtab_cmd && dysymtab_cmd)
+    {
+        uintptr_t base_addr = (uintptr_t)buffer;
+        parse_symbol_table(base_addr, symtab_cmd, dysymtab_cmd);
+    }
+
+    printf("-------------------------------------\n");
+    printf("Printing mach-o segments.\n");
+    printf("-------------------------------------\n");
+
+
+    cur = (uintptr_t)header + sizeof(mach_header_t);
     for (unsigned int i = 0; i < header->ncmds; i++, cur += cur_seg_cmd->cmdsize)
     {
         cur_seg_cmd = (segment_command_t*)cur;
@@ -87,15 +102,8 @@ void display_mach_o_load_commands(const char* file_path)
         {
             print_segment_command(cur_seg_cmd);
 
-            // 対象セグメントが __LINKEDIT だった場合は別途処理
-            if (strcmp(cur_seg_cmd->segname, SEG_LINKEDIT) == 0)
-            {
-                linkedit_seg = cur_seg_cmd;
-            }
-
             if (cur_seg_cmd->nsects == 0)
             {
-                printf("-----------------------------------------\n");
                 continue;
             }
 
@@ -103,28 +111,29 @@ void display_mach_o_load_commands(const char* file_path)
 
             print_section(cur_seg_cmd);
         }
-        else if (cur_seg_cmd->cmd == LC_SYMTAB)
-        {
-            symtab_cmd = (struct symtab_command*)cur_seg_cmd;
-            print_symtable(symtab_cmd);
-        }
-        else if (cur_seg_cmd->cmd == LC_DYSYMTAB)
-        {
-            dysymtab_cmd = (struct dysymtab_command*)cur_seg_cmd;
-            print_dysymtable(dysymtab_cmd);
-        }
-
-        printf("-----------------------------------------\n");
     }
 
-    if (linkedit_seg && symtab_cmd && dysymtab_cmd)
-    {
-        uintptr_t base_addr = (uintptr_t)buffer;
-        parse_symbol_table(base_addr, linkedit_seg, symtab_cmd, dysymtab_cmd);
-    }
+    // for (uint32_t i = 0; i < )
+    // uint32_t* indirect_symtab = (uint32_t*)(base_addr + dysymtab_cmd->indirectsymoff);
+    // void** indirect_symbol_bindings = (void**)((uintptr_t)base_addr + )
 
     free(buffer);
     fclose(fp);
+}
+
+void print_header(const mach_header_t* header)
+{
+    printf("-----------------------------------------------------------------------\n");
+    printf("Printing a mach-o header.\n");
+    printf("-----------------------------------------------------------------------\n");
+    printf("Magic: %d\n", header->magic);
+    printf("CPU Type: %d\n", header->cputype);
+    printf("CPU Sub Type: %d\n", header->cpusubtype);
+    printf("File Type: %d\n", header->filetype);
+    printf("Command Count: %d\n", header->ncmds);
+    printf("Size of Commands: %d\n", header->sizeofcmds);
+    printf("Flags: %d\n", header->flags);
+    printf("\n\n");
 }
 
 void print_segment_command(segment_command_t* command)
@@ -172,7 +181,7 @@ void print_section(segment_command_t* seg_cmd)
 
 void print_dysymtable(struct dysymtab_command* dysymtab_cmd)
 {
-    printf("Found the Dyanmic symbol table segment.\n");
+    printf("[Dynamic symbol table]\n");
     printf("           cmd: %d\n", dysymtab_cmd->cmd);
     printf("       cmdsize: %d\n", dysymtab_cmd->cmdsize);
     printf("     ilocalsym: %d\n", dysymtab_cmd->ilocalsym);
@@ -191,17 +200,19 @@ void print_dysymtable(struct dysymtab_command* dysymtab_cmd)
     printf("       nextrel: %d\n", dysymtab_cmd->nextrel);
     printf("     locreloff: %d\n", dysymtab_cmd->locreloff);
     printf("       nlocrel: %d\n", dysymtab_cmd->nlocrel);
+    printf("\n\n");
 }
 
 void print_symtable(struct symtab_command* symtab_cmd)
 {
-    printf("Found the Symbol table segment.\n");
+    printf("[Symbol table]\n");
     printf("    cmd: %d\n", symtab_cmd->cmd);
     printf("cmdsize: %d\n", symtab_cmd->cmdsize);
     printf(" symoff: %d\n", symtab_cmd->symoff);
     printf("  nsyms: %d\n", symtab_cmd->nsyms);
     printf(" stroff: %d\n", symtab_cmd->stroff);
     printf("strsize: %d\n", symtab_cmd->strsize);
+    printf("\n\n");
 }
 
 // [Mach-O ファイル構造]
@@ -216,12 +227,18 @@ void print_symtable(struct symtab_command* symtab_cmd)
 //   |        +--- stroff で指定される文字列表相対位置
 //   |
 //   +---- ファイル終端
-void parse_symbol_table(uintptr_t base_addr, segment_command_t* linkeedit_seg, struct symtab_command* symtab_cmd, struct dysymtab_command* dysymtab_cmd)
+void parse_symbol_table(uintptr_t base_addr, struct symtab_command* symtab_cmd, struct dysymtab_command* dysymtab_cmd)
 {
-    printf("===========================================\n");
-    printf("Found the %s segment.\n", SEG_LINKEDIT);
+    printf("-----------------------------------------------------------------------\n");
+    printf("Printing a symbol table and a dynamic symbol table metadata\n");
+    printf("-----------------------------------------------------------------------\n");
 
-    printf("---- Printing symbol table ----\n");
+    print_symtable(symtab_cmd);
+    print_dysymtable(dysymtab_cmd);
+
+    printf("-----------------------------------------------------------------------\n");
+    printf("Printing a symbol table and a dynamic symbol table\n");
+    printf("-----------------------------------------------------------------------\n");
 
     // stroff はファイル先頭からのオフセット
     uint32_t stroff = symtab_cmd->stroff;
@@ -248,7 +265,7 @@ void parse_symbol_table(uintptr_t base_addr, segment_command_t* linkeedit_seg, s
         printf("Symbol name: %s\n", symbol_name);
     }
 
-    // uint32_t* indirect_symtab = (uint32_t*)(linkedit_base + dysymtab_cmd->indirectsymoff);
+    printf("\n\n");
 }
 
 int main(int argc, char* argv[])
