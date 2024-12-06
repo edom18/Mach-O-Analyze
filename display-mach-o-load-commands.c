@@ -2,22 +2,25 @@
 #include <stdlib.h>
 #include <string.h>
 #include <mach-o/loader.h>
+#include <mach-o/nlist.h>
 
 #ifdef __LP64__
 typedef struct segment_command_64 segment_command_t;
 typedef struct mach_header_64 mach_header_t;
 typedef struct section_64 section_t;
+typedef struct nlist_64 nlist_t;
 #else
 typedef struct mach_header mach_header_t;
 typedef struct segment_command segment_command_t;
 typedef struct section section_t;
+typedef struct nlist nlist_t;
 #endif
 
 void print_segment_command(segment_command_t* command);
 void print_section(segment_command_t* seg_cmd);
 void print_dysymtable(struct dysymtab_command* dysymtab_cmd);
 void print_symtable(struct symtab_command* symtab_cmd);
-void parse_symbol_table(segment_command_t* linkeedit_seg);
+void parse_symbol_table(uintptr_t base_addr, segment_command_t* linkeedit_seg, struct symtab_command* symtab_cmd, struct dysymtab_command* dysymtab_cmd);
 
 /// @brief Mach-O フィーマットの Load Command の内容を出力する
 /// @param file_path 出力したいバイナリファイル（Mach-O フィーマット）
@@ -70,6 +73,9 @@ void display_mach_o_load_commands(const char* file_path)
     printf("-------------------------------------\n");
 
     segment_command_t* cur_seg_cmd;
+    segment_command_t* linkedit_seg;
+    struct symtab_command* symtab_cmd;
+    struct dysymtab_command* dysymtab_cmd;
 
     // ヘッダの次の位置のポインタ = Load command の先頭位置
     uintptr_t cur = (uintptr_t)header + sizeof(mach_header_t);
@@ -84,7 +90,7 @@ void display_mach_o_load_commands(const char* file_path)
             // 対象セグメントが __LINKEDIT だった場合は別途処理
             if (strcmp(cur_seg_cmd->segname, SEG_LINKEDIT) == 0)
             {
-                parse_symbol_table(cur_seg_cmd);
+                linkedit_seg = cur_seg_cmd;
             }
 
             if (cur_seg_cmd->nsects == 0)
@@ -99,16 +105,22 @@ void display_mach_o_load_commands(const char* file_path)
         }
         else if (cur_seg_cmd->cmd == LC_SYMTAB)
         {
-            struct symtab_command* symtab_cmd = (struct symtab_command*)cur_seg_cmd;
+            symtab_cmd = (struct symtab_command*)cur_seg_cmd;
             print_symtable(symtab_cmd);
         }
         else if (cur_seg_cmd->cmd == LC_DYSYMTAB)
         {
-            struct dysymtab_command* dysymtab_cmd = (struct dysymtab_command*)cur_seg_cmd;
+            dysymtab_cmd = (struct dysymtab_command*)cur_seg_cmd;
             print_dysymtable(dysymtab_cmd);
         }
 
         printf("-----------------------------------------\n");
+    }
+
+    if (linkedit_seg && symtab_cmd && dysymtab_cmd)
+    {
+        uintptr_t base_addr = (uintptr_t)buffer;
+        parse_symbol_table(base_addr, linkedit_seg, symtab_cmd, dysymtab_cmd);
     }
 
     free(buffer);
@@ -192,10 +204,62 @@ void print_symtable(struct symtab_command* symtab_cmd)
     printf("strsize: %d\n", symtab_cmd->strsize);
 }
 
-void parse_symbol_table(segment_command_t* linkeedit_seg)
+// [Mach-O ファイル構造]
+// 
+// ファイル先頭 (offset 0)
+//   |
+//   |---- ... 他セグメント ...
+//   |
+//   |---- __LINKEDIT セグメント開始 (offset = linkedit_segment->fileoff)
+//   |       \
+//   |        +--- symoff で指定されるシンボルテーブル相対位置
+//   |        +--- stroff で指定される文字列表相対位置
+//   |
+//   +---- ファイル終端
+void parse_symbol_table(uintptr_t base_addr, segment_command_t* linkeedit_seg, struct symtab_command* symtab_cmd, struct dysymtab_command* dysymtab_cmd)
 {
-    printf("=====================\n");
+    printf("===========================================\n");
     printf("Found the %s segment.\n", SEG_LINKEDIT);
+
+    uint32_t stroff = symtab_cmd->stroff;
+    uint32_t strsize = symtab_cmd->strsize;
+
+    char* strtab = (char*)base_addr + stroff;
+    size_t offset = 0;
+    while (offset < strsize)
+    {
+        char* symbol_name = strtab + offset;
+        printf("String at offset %zu: %s\n", offset, symbol_name);
+
+        offset += strlen(symbol_name) + 1;
+    }
+
+    // uintptr_t linkedit_base = (uintptr_t)(slide + linkeedit_seg->fileoff);
+    // printf("LinkEdit Base: %lu\n", linkedit_base);
+    // printf("File offset: %llu\n", linkeedit_seg->fileoff);
+
+    // // symtab_cmd->symoff は、LinkEdit セグメントからの相対アドレスのはず？
+    // nlist_t* symtab = (nlist_t*)(linkedit_base + symtab_cmd->symoff);
+
+    // printf("Symtab: %lu\n", (uintptr_t)symtab);
+
+    // // struct nlist_64 {
+    // //     union {
+    // //         uint32_t  n_strx; /* index into the string table */
+    // //     } n_un;
+    // //     uint8_t n_type;        /* type flag, see below */
+    // //     uint8_t n_sect;        /* section number or NO_SECT */
+    // //     uint16_t n_desc;       /* see <mach-o/stab.h> */
+    // //     uint64_t n_value;      /* value of this symbol (or stab offset) */
+    // // };
+    // uint32_t strtab_offset = symtab[0].n_un.n_strx;
+    // printf("strx: %d\n", strtab_offset);
+
+    // char* strtab = (char*)(linkedit_base + symtab_cmd->stroff);
+
+    // printf("String table: %s\n", strtab);
+
+    // uint32_t* indirect_symtab = (uint32_t*)(linkedit_base + dysymtab_cmd->indirectsymoff);
 }
 
 int main(int argc, char* argv[])
