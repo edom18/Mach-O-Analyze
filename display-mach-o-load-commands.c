@@ -221,6 +221,8 @@ void parse_symbol_table(uintptr_t base_addr, segment_command_t* linkeedit_seg, s
     printf("===========================================\n");
     printf("Found the %s segment.\n", SEG_LINKEDIT);
 
+    printf("---- Printing symbol table ----\n");
+
     // stroff はファイル先頭からのオフセット
     uint32_t stroff = symtab_cmd->stroff;
     uint32_t strsize = symtab_cmd->strsize;
@@ -228,30 +230,23 @@ void parse_symbol_table(uintptr_t base_addr, segment_command_t* linkeedit_seg, s
     // string table 内は \0 区切りの文字列配列
     // インデックス 0 は空文字列。1 つめの実シンボル名は strtab + nlist.n_un.n_strx で参照される
     char* strtab = (char*)base_addr + stroff;
-    size_t offset = 0;
-    while (offset < strsize)
+    nlist_t* symtab = (nlist_t*)(base_addr + symtab_cmd->symoff);
+
+    // struct nlist_64 {
+    //     union {
+    //         uint32_t  n_strx; /* index into the string table */
+    //     } n_un;
+    //     uint8_t n_type;        /* type flag, see below */
+    //     uint8_t n_sect;        /* section number or NO_SECT */
+    //     uint16_t n_desc;       /* see <mach-o/stab.h> */
+    //     uint64_t n_value;      /* value of this symbol (or stab offset) */
+    // };
+    for (uint32_t i = 0; i < symtab_cmd->nsyms; i++)
     {
-        char* symbol_name = strtab + offset;
-        printf("String at offset %zu: %s\n", offset, symbol_name);
-
-        offset += strlen(symbol_name) + 1;
+        uint32_t strtab_offset = symtab[i].n_un.n_strx;
+        char* symbol_name = strtab + strtab_offset;
+        printf("Symbol name: %s\n", symbol_name);
     }
-
-    // nlist_t* symtab = (nlist_t*)(base_addr + symtab_cmd->symoff);
-
-    // printf("Symtab: %lu\n", (uintptr_t)symtab);
-
-    // // struct nlist_64 {
-    // //     union {
-    // //         uint32_t  n_strx; /* index into the string table */
-    // //     } n_un;
-    // //     uint8_t n_type;        /* type flag, see below */
-    // //     uint8_t n_sect;        /* section number or NO_SECT */
-    // //     uint16_t n_desc;       /* see <mach-o/stab.h> */
-    // //     uint64_t n_value;      /* value of this symbol (or stab offset) */
-    // // };
-    // uint32_t strtab_offset = symtab[0].n_un.n_strx;
-    // printf("strx: %d\n", strtab_offset);
 
     // uint32_t* indirect_symtab = (uint32_t*)(linkedit_base + dysymtab_cmd->indirectsymoff);
 }
