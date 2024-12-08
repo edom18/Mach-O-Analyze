@@ -66,7 +66,6 @@ void display_mach_o_load_commands(const char* file_path)
 
     print_header(header);
 
-    segment_command_t* cur_seg_cmd;
     struct symtab_command* symtab_cmd;
     struct dysymtab_command* dysymtab_cmd;
 
@@ -74,16 +73,17 @@ void display_mach_o_load_commands(const char* file_path)
     uintptr_t cur = (uintptr_t)header + sizeof(mach_header_t);
 
     // 必要なセグメントを検索する
-    for (unsigned int i = 0; i < header->ncmds; i++, cur += cur_seg_cmd->cmdsize)
+    struct load_command* cur_cmd;
+    for (unsigned int i = 0; i < header->ncmds; i++, cur += cur_cmd->cmdsize)
     {
-        cur_seg_cmd = (segment_command_t*)cur;
-        if (cur_seg_cmd->cmd == LC_SYMTAB)
+        cur_cmd = (struct load_command*)cur;
+        if (cur_cmd->cmd == LC_SYMTAB)
         {
-            symtab_cmd = (struct symtab_command*)cur_seg_cmd;
+            symtab_cmd = (struct symtab_command*)cur_cmd;
         }
-        else if (cur_seg_cmd->cmd == LC_DYSYMTAB)
+        else if (cur_cmd->cmd == LC_DYSYMTAB)
         {
-            dysymtab_cmd = (struct dysymtab_command*)cur_seg_cmd;
+            dysymtab_cmd = (struct dysymtab_command*)cur_cmd;
         }
     }
 
@@ -101,6 +101,7 @@ void display_mach_o_load_commands(const char* file_path)
     cur = (uintptr_t)header + sizeof(mach_header_t);
     uintptr_t base_addr = (uintptr_t)buffer;
     nlist_t* symtab = (nlist_t*)(base_addr + symtab_cmd->symoff);
+    segment_command_t* cur_seg_cmd;
     char* strtab = (char*)(base_addr + symtab_cmd->stroff);
     for (unsigned int i = 0; i < header->ncmds; i++, cur += cur_seg_cmd->cmdsize)
     {
