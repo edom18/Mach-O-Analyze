@@ -3,6 +3,10 @@
 #include <string.h>
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #ifdef __LP64__
 typedef struct segment_command_64 segment_command_t;
@@ -31,33 +35,30 @@ void parse_symbol_table(uintptr_t base_addr, struct symtab_command* symtab_cmd, 
 /// @param file_path 出力したいバイナリファイル（Mach-O フィーマット）
 void display_mach_o_load_commands(const char* file_path)
 {
-    FILE* fp = fopen(file_path, "rb");
-    if (fp == NULL)
+    int fd = open(file_path, O_RDONLY);
+
+    struct stat st;
+    if (fstat(fd, &st) < 0)
     {
-        fprintf(stderr, "Failed to load a binary file [%s]\n", file_path);
+        perror("fstat");
+        close(fd);
         return;
     }
 
-    fseek(fp, 0, SEEK_END);
-    size_t file_size = ftell(fp);
-    fseek(fp, 0, SEEK_SET);
-
-    void* buffer = malloc(file_size);
-    if (buffer == NULL)
+    void* buffer = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (buffer == MAP_FAILED)
     {
-        fprintf(stderr, "Failed to allocate memory.\n");
-        fclose(fp);
+        perror("mmap");
+        close(fd);
         return;
     }
-
-    fread(buffer, 1, file_size, fp);
+    close(fd);
 
     const mach_header_t* header = (const mach_header_t*)buffer;
     if (header->magic != MH_MAGIC_64)
     {
         fprintf(stderr, "The file [%s] is not a Mach-O file.\n", file_path);
-        free(buffer);
-        fclose(fp);
+        munmap(buffer, st.st_size);
         return;
     }
 
@@ -159,8 +160,7 @@ void display_mach_o_load_commands(const char* file_path)
         printf("----------------------------------\n");
     }
 
-    free(buffer);
-    fclose(fp);
+    munmap(buffer, st.st_size);
 }
 
 void print_header(const mach_header_t* header)
